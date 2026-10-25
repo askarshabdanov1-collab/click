@@ -630,3 +630,85 @@ def test_command_write_usage_no_args(runner, command_kwargs, expected_usage_line
     cli = click.Command("cli", **command_kwargs)
     result = runner.invoke(cli, ["--help"])
     assert result.output.splitlines()[0] == expected_usage_line
+
+
+def test_help_formatter_write_usage_does_not_break_on_hyphens():
+    """Regression for #3362: ``HelpFormatter.write_usage`` must not break
+    hyphenated option/argument names across lines by default.
+    """
+    options = [
+        "--enable-verbose-logging",
+        "--output-file-path",
+        "--max-retry-count",
+        "--disable-cache-mode",
+        "--config-file-location",
+        "--user-auth-token",
+        "--auto-update-interval",
+        "--force-overwrite-existing",
+        "--network-timeout-seconds",
+        "--debug-trace-enabled",
+    ]
+    formatter = click.HelpFormatter(width=65)
+    formatter.write_usage("program", " ".join(options))
+    expected = (
+        "Usage: program --enable-verbose-logging --output-file-path\n"
+        "               --max-retry-count --disable-cache-mode\n"
+        "               --config-file-location --user-auth-token\n"
+        "               --auto-update-interval --force-overwrite-existing\n"
+        "               --network-timeout-seconds --debug-trace-enabled\n"
+    )
+    assert formatter.getvalue() == expected
+
+
+def test_help_formatter_write_usage_explicit_break_on_hyphens():
+    """``HelpFormatter.write_usage`` allows opt-in break_on_hyphens=True."""
+    options = [
+        "--enable-verbose-logging",
+        "--output-file-path",
+        "--max-retry-count",
+        "--disable-cache-mode",
+        "--config-file-location",
+        "--user-auth-token",
+        "--auto-update-interval",
+        "--force-overwrite-existing",
+        "--network-timeout-seconds",
+        "--debug-trace-enabled",
+    ]
+    formatter = click.HelpFormatter(width=65)
+    formatter.write_usage("program", " ".join(options), break_on_hyphens=True)
+    # When break_on_hyphens is enabled, words like --max-retry-count split at hyphens
+    assert "--max-\n" in formatter.getvalue()
+
+
+def test_wrap_text_break_on_hyphens():
+    """Unit test: ``wrap_text`` respects ``break_on_hyphens`` parameter."""
+    text = "word --long-option-name"
+    # With default break_on_hyphens=True, splits at hyphen
+    wrapped_default = click.formatting.wrap_text(text, width=20)
+    assert wrapped_default == "word --long-option-\nname"
+
+    # With break_on_hyphens=False, refuses to break at hyphen
+    # and moves whole word to next line
+    wrapped_no_hyphen_break = click.formatting.wrap_text(
+        text, width=20, break_on_hyphens=False
+    )
+    assert wrapped_no_hyphen_break == "word\n--long-option-name"
+
+
+def test_command_usage_hyphenated_metavar_not_broken(runner):
+    """End-to-end: command with hyphenated argument does not break at
+    hyphens in usage.
+    """
+    cli = click.Command(
+        "cli",
+        params=[
+            click.Argument(["arg1"], metavar="<source-data-directory-path>"),
+            click.Argument(["arg2"], metavar="<destination-target-directory-path>"),
+        ],
+    )
+    result = runner.invoke(cli, ["--help"], max_content_width=50)
+    assert result.exit_code == 0
+    # Usage lines should wrap at spaces between arguments, not inside metavars
+    lines = result.output.splitlines()
+    assert any("<source-data-directory-path>" in line for line in lines)
+    assert any("<destination-target-directory-path>" in line for line in lines)

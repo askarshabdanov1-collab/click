@@ -34,6 +34,8 @@ def wrap_text(
     initial_indent: str = "",
     subsequent_indent: str = "",
     preserve_paragraphs: bool = False,
+    *,
+    break_on_hyphens: bool = True,
 ) -> str:
     """A helper function that intelligently wraps text.  By default, it
     assumes that it operates on a single paragraph of text but if the
@@ -52,6 +54,8 @@ def wrap_text(
                               each consecutive line.
     :param preserve_paragraphs: if this flag is set then the wrapping will
                                 intelligently handle paragraphs.
+    :param break_on_hyphens: if set to ``True``, compound words containing
+        hyphens may be broken across lines. Defaults to ``True``.
 
     .. versionchanged:: 8.4.0
         Width is measured in visible characters. ANSI escape sequences in
@@ -67,6 +71,7 @@ def wrap_text(
         initial_indent=initial_indent,
         subsequent_indent=subsequent_indent,
         replace_whitespace=False,
+        break_on_hyphens=break_on_hyphens,
     )
     if not preserve_paragraphs:
         return wrapper.fill(text)
@@ -155,13 +160,22 @@ class HelpFormatter:
         """Decreases the indentation."""
         self.current_indent -= self.indent_increment
 
-    def write_usage(self, prog: str, args: str = "", prefix: str | None = None) -> None:
+    def write_usage(
+        self,
+        prog: str,
+        args: str = "",
+        prefix: str | None = None,
+        *,
+        break_on_hyphens: bool = False,
+    ) -> None:
         """Writes a usage line into the buffer.
 
         :param prog: the program name.
         :param args: whitespace separated list of arguments.
         :param prefix: The prefix for the first line. Defaults to
             ``"Usage: "``.
+        :param break_on_hyphens: whether options and arguments containing
+            hyphens may be broken across lines. Defaults to ``False``.
         """
         if prefix is None:
             prefix = "{usage} ".format(usage=_("Usage:"))
@@ -186,6 +200,7 @@ class HelpFormatter:
                     text_width,
                     initial_indent=usage_prefix,
                     subsequent_indent=indent,
+                    break_on_hyphens=break_on_hyphens,
                 )
             )
         else:
@@ -195,7 +210,11 @@ class HelpFormatter:
             indent = " " * (max(self.current_indent, term_len(prefix)) + 4)
             self.write(
                 wrap_text(
-                    args, text_width, initial_indent=indent, subsequent_indent=indent
+                    args,
+                    text_width,
+                    initial_indent=indent,
+                    subsequent_indent=indent,
+                    break_on_hyphens=break_on_hyphens,
                 )
             )
 
